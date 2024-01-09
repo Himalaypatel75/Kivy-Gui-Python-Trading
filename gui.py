@@ -1,3 +1,4 @@
+from time import sleep
 import tkinter as tk
 from tkinter import messagebox
 from datetime import datetime, timedelta, time
@@ -5,12 +6,20 @@ import pandas as pd
 from pya3 import *
 from dotenv import load_dotenv
 import os
+import logging
 
 # Load environment variables from .env file
 load_dotenv()
 
+logging.basicConfig(
+    filename="trading_app.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s - Line:%(lineno)d",
+)
+
 env_api_key = os.getenv("API_KEY")
 env_user_id = os.getenv("USER_ID")
+
 
 class MyAppGUI:
     def __init__(self, master):
@@ -40,7 +49,9 @@ class MyAppGUI:
         self.qty_entry.grid(row=2, column=1, padx=5, pady=5)
 
         # Create a button for starting the algorithm
-        self.start_button = tk.Button(self.frame, text="Start Algorithm", command=self.on_start_button_press)
+        self.start_button = tk.Button(
+            self.frame, text="Start Algorithm", command=self.on_start_button_press
+        )
         self.start_button.grid(row=3, column=0, columnspan=2, pady=10)
 
         # Create a label to display the result
@@ -55,9 +66,7 @@ class MyAppGUI:
             """--------------------SESSONCREATED--------------------------"""
             api_key = self.api_key_entry.get()
             user_id = self.user_id_entry.get()
-            print(api_key)
-            # api_key = "5hJsnsI6JKCIz3evZh91UPkJusZbAIKUi9fYlofDunQY3IC6KpWxd5x6c3z7FxbQfLuhKqyqpLV1h3ZiYqJaroajqr0sfYdOOGJTfrB8bL3IGyfBfI2v4eLlK6NIemQ7"
-            # user_id = "928750"
+            logging.info(api_key)
 
             alice = Aliceblue(user_id=user_id, api_key=api_key)
             sesson = alice.get_session_id()
@@ -73,7 +82,8 @@ class MyAppGUI:
 
             today = datetime.now().date()
             filtered_df = df[
-                (df["Symbol"] == "BANKNIFTY") & (df["Expiry Date"] >= pd.to_datetime(today))
+                (df["Symbol"] == "BANKNIFTY")
+                & (df["Expiry Date"] >= pd.to_datetime(today))
             ]
 
             nearest_expiry_date = filtered_df["Expiry Date"].min()
@@ -103,7 +113,7 @@ class MyAppGUI:
             last_close_value = past_data["close"].iloc[-1]  # LAST CLOSE FOR BANKNIFTY
 
             # Display the result
-            print("Last close value from past data:", last_close_value)
+            logging.info(f"Last close value from past data: {last_close_value}")
 
             """--------------------LIVE DATA FOR NIFTY AND INSTRUMNT--------------------------"""
             strick_selection = False
@@ -127,76 +137,89 @@ class MyAppGUI:
                 price = 300.0
             elif current_day == 4:  # Friday
                 price = 250.0
+            instrument = None
 
+            test = False
+            date_format = "%Y-%m-%d %H:%M:%S"
+            
             while True:
                 sleep(1)
+
                 if current_time.time() >= target_time:
                     if not strick_selection:
-                        print("We are in now. as time is:", current_time.time())
+                        logging.info(
+                            f"We are in now. as time is: {current_time.time()}"
+                        )
+
                         current_ltp_banknifty = alice.get_scrip_info(
                             alice.get_instrument_by_token("INDICES", 26009)
                         )
-                        # print(current_ltp_banknifty, "--<<")
+
+                        logging.info(current_ltp_banknifty)
                         banknifty_ltp = float(current_ltp_banknifty["openPrice"])
-                        # print(banknifty_ltp, "---")
+                        logging.info(banknifty_ltp)
 
                         x = banknifty_ltp - banknifty_ltp % 100
                         if banknifty_ltp % 100 >= 50:
                             x = x + 100
 
                         float_strick = int(x)
-                        # print(float_strick)
-                        # print("===")
+                        logging.info(float_strick)
 
                         if last_close_value > banknifty_ltp:
                             option_type = "PE"
                         else:
                             option_type = "CE"
 
-                        # print(final_trading_instruments, "----final_trading_instruments")
+                        logging.info(final_trading_instruments)
+
                         stricked_instrument = final_trading_instruments[
                             (filtered_df["Strike Price"] == float_strick)
                             & (filtered_df["Option Type"] == option_type)
                         ].iloc[0]
 
-                        print("Instrument selected:", stricked_instrument)
+                        logging.info(f"Instrument selected: {stricked_instrument}")
 
                         strick_selection = True
-                        
-                        
+
                     elif strick_selection and not entry_order_placed:
                         inst_data = stricked_instrument
+
+                        size = int(inst_data["Lot Size"]) * int(quantity)
                         
-                        size = int(int(inst_data["Lot Size"]) * int(quantity))
                         instrument_ltp_price = alice.get_scrip_info(
                             alice.get_instrument_by_token("NFO", int(inst_data["Token"]))
                         )
-                        
-                        if float(instrument_ltp_price["LTP"]) < float(price):
-                            
-                            # print("-----------------")
-                            # print(instrument_ltp_price)
-                            # """{'optiontype': 'XX', 'SQty': 390, 
-                            # 'vwapAveragePrice': '183.75', 'LTQ': '15', 
-                            # 'DecimalPrecision': 2, 'openPrice': '226.85', 
-                            # 'LTP': '241.25', 'Ltp': '241.25', 'BRate': '240.00', 
-                            # 'defmktproval': '0', 'symbolname': 'BANKNIFTY', 
-                            # 'noMktPro': '0', 'BQty': 150, 'mktpro': '0', 'LTT': '15:29:59', 
-                            # 'TickSize': '0.05', 'Multiplier': 1, 'strikeprice': '48200.00', 
-                            # 'TotalSell': '72758430', 'High': '299.60', 'stat': 'Ok', 'yearlyLowPrice': '0',
-                            # 'yearlyHighPrice': '0', 'exchFeedTime': '15:29:59', 'BodLotQty': 15, 
-                            # 'PrvClose': '0', 'Change': '00.00', 'SRate': '241.95', 'Series': 'XX', 
-                            # 'TotalBuy': '72758430', 'Low': '92.65', 'UniqueKey': 'NA',
-                            # 'PerChange': '00.00', 'companyname': None, 'TradeVolume': '72758430',
-                            # 'TSymbl': 'BANKNIFTY03JAN24P48200', 'Exp': 'NA', 'LTD': '15:29:59'}"""
-                            # print("-----------------")
-                            
-                            print("Condition met we are placing entry order: ltp", instrument_ltp_price["LTP"])
-                            print("Triggure price:", price)
-                            
+                        print(instrument_ltp_price,"instrument_ltp_price")
+                        if (
+                            float(instrument_ltp_price["LTP"]) - 1
+                            <= float(price)
+                            <= float(instrument_ltp_price["LTP"]) + 1
+                        ) or test:
+                            logging.info(f"instrument - {instrument_ltp_price}")
+                            logging.info(
+                                f"instrument type - {type(instrument_ltp_price)}"
+                            )
+                            logging.info(
+                                f"Condition met we are placing entry order: ltp {instrument_ltp_price['LTP']}"
+                            )
+                            logging.info(f"Triggure price: {price}")
+                            logging.info(f"size - {size}")
+                            # date_format = "%Y-%m-%d %H:%M:%S"
+                            # instrument = Instrument(
+                            #     exchange=inst_data["Exchange Segment"],
+                            #     token=inst_data["Token"],
+                            #     symbol=inst_data["Symbol"],
+                            #     name="Instrument Name",  # Corrected the syntax here
+                            #     expiry=datetime.strptime(
+                            #         str(inst_data["Expiry Date"]), date_format
+                            #     ).date(),
+                            #     lot_size=float(inst_data["Lot Size"]),
+                            # )
+
                             order = alice.place_order(
                                 transaction_type=TransactionType.Buy,
-                                instrument=instrument_ltp_price,
+                                instrument= alice.get_instrument_for_fno(exch="NFO",symbol=inst_data["Symbol"], expiry_date=str(datetime.strptime(str(inst_data["Expiry Date"]), date_format).date()), is_fut=False,strike=inst_data["Strike Price"], is_CE=(option_type  == "CE")),
                                 quantity=size,
                                 order_type=OrderType.Market,
                                 product_type=ProductType.Delivery,
@@ -208,28 +231,34 @@ class MyAppGUI:
                                 is_amo=False,
                                 order_tag="HimalayTradeTron",
                             )
-                            
+
                             entry_order_placed = True
-                            print(order, ": exit order")
-                            
-                            price = price + price*0.1
-                            print("Triggure setup to 10% profit:", price)
-                            
+                            logging.info(f"{order} : exit order")
+
+                            price = price + price * 0.1
+                            logging.info(f"Triggure setup to 10% profit: {price}")
+
                     elif strick_selection and entry_order_placed:
                         inst_data = stricked_instrument
-                        
+
                         instrument_ltp_price = alice.get_scrip_info(
                             alice.get_instrument_by_token("NFO", int(inst_data["Token"]))
                         )
-                        
-                        if float(instrument_ltp_price["LTP"]) >= float(price):
-                            
-                            print("Condition met we are placing exit order: ltp", instrument_ltp_price["LTP"])
-                            print("Triggure price:", price)
-                            
+
+                        print(instrument_ltp_price,"---")
+                        if (
+                            float(instrument_ltp_price["LTP"]) - 1
+                            <= float(price)
+                            <= float(instrument_ltp_price["LTP"]) + 1
+                        ) or test:
+                            logging.info(
+                                f"Condition met we are placing exit order: ltp {instrument_ltp_price['LTP']}"
+                            )
+                            logging.info(f"Triggure price: {price}")
+
                             order = alice.place_order(
                                 transaction_type=TransactionType.Sell,
-                                instrument=instrument_ltp_price,
+                                instrument=alice.get_instrument_for_fno(exch="NFO",symbol=inst_data["Symbol"], expiry_date=str(datetime.strptime(str(inst_data["Expiry Date"]), date_format).date()), is_fut=False,strike=inst_data["Strike Price"], is_CE=(option_type  == "CE")),
                                 quantity=size,
                                 order_type=OrderType.Market,
                                 product_type=ProductType.Delivery,
@@ -241,12 +270,15 @@ class MyAppGUI:
                                 is_amo=False,
                                 order_tag="HimalayTradeTron",
                             )
-                            print(order, ": exit order")
-                            self.master.destroy() #close gui after coosing to exit
+                            break
+                            logging.info(f"{order} : exit order")
 
         except Exception as e:
-            # Display an error message if the quantity is not a valid integer
-            messagebox.showerror("Error", f"Please enter a valid quantity. - {e}")
+            import traceback
+            error_message = f"An error occurred: {e}\n\n{traceback.format_exc()}"
+            messagebox.showerror("Error", error_message)
+            logging.info(f"Error: {error_message}")
+
 
 if __name__ == "__main__":
     root = tk.Tk()
