@@ -120,7 +120,6 @@ class MyAppGUI:
             stricked_instrument = None
             entry_order_placed = False
 
-            current_time = datetime.now()
             target_time = time(9, 15)
 
             current_day = datetime.now().weekday()
@@ -143,6 +142,7 @@ class MyAppGUI:
             date_format = "%Y-%m-%d %H:%M:%S"
             
             while True:
+                current_time = datetime.now()
                 sleep(1)
 
                 if current_time.time() >= target_time:
