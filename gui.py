@@ -120,6 +120,7 @@ class MyAppGUI:
             stricked_instrument = None
             entry_order_placed = False
 
+            
             target_time = time(9, 15)
 
             current_day = datetime.now().weekday()
@@ -270,8 +271,8 @@ class MyAppGUI:
                                 is_amo=False,
                                 order_tag="HimalayTradeTron",
                             )
-                            break
                             logging.info(f"{order} : exit order")
+                            break
 
         except Exception as e:
             import traceback
